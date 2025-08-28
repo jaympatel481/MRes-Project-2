@@ -6,14 +6,14 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# --- PARAMETERS ---
+
 samples_txt = "samples_phasing_clustering_success.txt"
 sublineage_file = "sublineage_variants.txt"
 TOP_N = 50  # number of most-seen variants to display
 
 variant_records = []
 
-# --- Load sublineage set ---
+
 with open(sublineage_file) as f:
     sublineage_set = set(line.strip() for line in f if line.strip())
 
@@ -27,7 +27,7 @@ for sample in tqdm(sample_dirs):
     if not (os.path.exists(vcf_path) and os.path.exists(dpmm_analysis_path)):
         continue
 
-    # Load VAFs
+    
     vaf_dict = {}
     with open(vcf_path) as vf:
         for line in vf:
@@ -48,7 +48,7 @@ for sample in tqdm(sample_dirs):
                 varid = f"{chrom}_{pos}_{ref}_{alt}"
                 vaf_dict[varid] = af
 
-    # Load DPMM cluster summary: need 'variants_not_in_sublineage_blocks'
+    
     dpmm_df = pd.read_csv(dpmm_analysis_path)
     for i, row in dpmm_df.iterrows():
         if pd.isna(row.get('variants_not_in_sublineage_blocks', '')):
@@ -69,18 +69,18 @@ for sample in tqdm(sample_dirs):
                     "VAF": vaf_dict[varid]
                 })
 
-# --- Combine into DataFrame ---
+
 df = pd.DataFrame(variant_records)
 df.to_csv("non_sublineage_variants_after_phasing_and_clustering.csv",index=False)
-# --- Compute sample count for each variant ---
+
 sample_counts = df.groupby('variant_id')['sample'].nunique().reset_index()
 sample_counts = sample_counts.rename(columns={"sample": "Sample_Count"})
 
-# --- Only keep variants present at least once ---
+
 valid_vars = set(sample_counts['variant_id'])
 df = df[df['variant_id'].isin(valid_vars)]
 
-# --- Sort variants by Sample_Count ascending (most at top), select top N and reverse ---
+
 sample_counts_sorted = sample_counts.sort_values("Sample_Count", ascending=False).head(TOP_N)
 variant_order = sample_counts_sorted['variant_id'].tolist()  # reverse so most at top
 
@@ -89,13 +89,13 @@ df_top['variant_id'] = pd.Categorical(df_top['variant_id'], categories=variant_o
 sample_counts_top = sample_counts_sorted.copy()
 sample_counts_top['variant_id'] = pd.Categorical(sample_counts_top['variant_id'], categories=variant_order, ordered=True)
 
-# --- Final Plotting ---
+
 fig, axes = plt.subplots(
     1, 2, figsize=(6, len(variant_order) * 0.11),
     sharey=True, gridspec_kw={'width_ratios': [3, 1]}
 )
 
-# --- Strip Plot (Left) ---
+
 sns.stripplot(
     data=df_top,
     x='VAF',
@@ -119,7 +119,7 @@ axes[0].spines['bottom'].set_linewidth(2)
 axes[0].spines['left'].set_color('black')
 axes[0].spines['bottom'].set_color('black')
 
-# --- Horizontal Bar Plot (Right) ---
+
 sns.barplot(
     data=sample_counts_top,
     x='Sample_Count',
@@ -140,7 +140,7 @@ axes[1].spines['bottom'].set_linewidth(2)
 axes[1].spines['left'].set_color('black')
 axes[1].spines['bottom'].set_color('black')
 
-# --- Add thin black dotted lines for each variant_id ---
+
 num_variants = len(variant_order)
 for i in range(num_variants):
     axes[0].axhline(y=i, color='black', linestyle=':', linewidth=0.7, alpha=0.7)
