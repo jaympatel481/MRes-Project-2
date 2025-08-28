@@ -3,11 +3,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# --- Read in data ---
+
 df_vaf = pd.read_csv("non_sublineage_variants_after_phasing_and_clustering.csv") # Must have 'variant_id', 'sample', 'VAF'
 df_annot = pd.read_csv("Final_annotated_variants_collated.csv")  # Must have 'Sample', 'Chrom', 'Pos', 'Ref', 'Alt' and effect columns
 
-# --- Extract Chrom, Pos, Ref, Alt from variant_id ---
+
 def parse_variant_id(vid):
     tokens = vid.split("_")
     chrom = tokens[0]
@@ -21,7 +21,7 @@ df_vaf[['Chrom', 'Pos', 'Ref', 'Alt']] = pd.DataFrame(var_info.tolist(), index=d
 df_vaf['Pos'] = df_vaf['Pos'].astype(str)
 df_annot['Pos'] = df_annot['Pos'].astype(str)
 
-# --- MERGE on sample/chrom/pos/ref/alt (all as string) ---
+
 merged = pd.merge(
     df_vaf,
     df_annot,
@@ -30,25 +30,25 @@ merged = pd.merge(
     how='left'
 )
 
-# --- FILTER: Include only SNVs (length-1 ref and alt) ---
+
 snv_mask = (merged['Ref'].str.len() == 1) & (merged['Alt'].str.len() == 1)
 merged = merged[snv_mask].copy()
 
-# --- For each variant_id, assign global effect class ---
+
 effect_cols = ['E1', 'E2', 'E4', 'E5', 'E6', 'E7', 'L1', 'L2', 'E1^E4']
-# Find for each variant_id if it is ever non-synonymous anywhere, else if ever synonymous, else other
+
 def classify_variant(df, effect_cols):
     effect_map = {}
     group = df.groupby('variant_id')
     for varid, subdf in group:
         found_non_syn = False
         found_syn = False
-        # Check for all occurrences of this variant_id
+        
         for _, row in subdf.iterrows():
             effects = [str(row.get(gene,'')) for gene in effect_cols]
             if any('non_synonymous' in eff or 'missense_variant' in eff or 'stop_lost' in eff or 'stop_gained' in eff or 'start_lost' in eff or 'start_gained' in eff for eff in effects):
                 found_non_syn = True
-                break  # Non-synonymous takes precedence
+                break  # Non-synonymous checked first as priority
             elif any('synonymous' in eff for eff in effects):
                 found_syn = True
         if found_non_syn:
@@ -62,11 +62,11 @@ def classify_variant(df, effect_cols):
 effect_map = classify_variant(merged, effect_cols)
 merged['effect_class'] = merged['variant_id'].map(effect_map)
 
-# --- Color palette for colorblind accessibility ---
+
 palette = {
-    'nonsynonymous': '#D73027',     # Red (Colorblind safe)
-    'synonymous':    '#1A9850',     # Green
-    'other':         '#636363'      # Gray
+    'nonsynonymous': '#D73027',     
+    'synonymous':    '#1A9850',     
+    'other':         '#636363'      
 }
 label_dict = {
     'nonsynonymous': 'Non-synonymous',
@@ -74,22 +74,22 @@ label_dict = {
     'other': 'Other'
 }
 
-# --- Compute sample count for each variant, order by count ascending, and select top 50 ---
+
 variant_sample_counts = merged.groupby('variant_id')['sample'].nunique().reset_index()
 variant_sample_counts = variant_sample_counts.rename(columns={'sample': 'Sample_Count'})
 variant_sample_counts = variant_sample_counts.sort_values('Sample_Count', ascending=False)
 
-# Take only first 50 (lowest to highest count)
+
 variant_top = variant_sample_counts.head(50)
 variant_order = variant_top['variant_id'].tolist()
 
-# Filter main dataframe for those variants and adjust the ordering
+
 merged_top = merged[merged['variant_id'].isin(variant_order)].copy()
 merged_top['variant_id'] = pd.Categorical(merged_top['variant_id'], categories=variant_order, ordered=True)
 variant_top['variant_id'] = pd.Categorical(variant_top['variant_id'], categories=variant_order, ordered=True)
 merged_top['VAF'] = merged_top['VAF_x'] if 'VAF_x' in merged_top.columns else merged_top['VAF']
 
-# --- Plotting ---
+
 fig, axes = plt.subplots(
     1, 2, figsize=(6, len(variant_order) * 0.13),
     sharey=True, gridspec_kw={'width_ratios': [3, 1]}
@@ -144,7 +144,7 @@ for i in range(len(variant_order)):
     axes[0].axhline(y=i, color='black', linestyle=':', linewidth=0.7, alpha=0.7)
     axes[1].axhline(y=i, color='black', linestyle=':', linewidth=0.7, alpha=0.7)
 
-# Legend
+
 from matplotlib.lines import Line2D
 handles = [
     Line2D([0], [0], marker='o', color='none', label=label_dict[k], markerfacecolor=palette[k], markeredgecolor='black', markersize=7, alpha=0.95)
