@@ -14,7 +14,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 def parse_vcf_variants(vcf_file, sample_name):
-    """Parse VCF and extract SNV variants with VAFs"""
+    
     variants = {}
     
     with open(vcf_file) as f:
@@ -52,7 +52,7 @@ def parse_vcf_variants(vcf_file, sample_name):
 def count_sublineage_variants_per_sample(samples_file, sublineage_file):
     """Count the number of known sublineage variants present in each sample"""
     
-    # Load sample names
+    
     with open(samples_file) as f:
         sample_names = [line.strip() for line in f if line.strip()]
     
@@ -75,16 +75,16 @@ def count_sublineage_variants_per_sample(samples_file, sublineage_file):
     return sublineage_counts
 
 def load_truly_nonsublineage_variants(sample, sublineage_variants):
-    """Load variants that are truly non-sublineage (not sublineage and not phased with sublineage)"""
     
-    # Paths for required files
+    
+    
     vcf_path = os.path.join(sample, "hpv_somatic_snvs.vcf")
     block_csv = os.path.join(sample, "UMI_Phased_Blocks.csv")
     
     if not (os.path.exists(vcf_path) and os.path.exists(block_csv)):
         return set()
     
-    # Get all variants and their VAFs
+    
     vaf_dict = {}
     with open(vcf_path) as vf:
         for line in vf:
@@ -113,7 +113,7 @@ def load_truly_nonsublineage_variants(sample, sublineage_variants):
                 varid = f"{chrom}_{pos}_{ref}_{alt}"
                 vaf_dict[varid] = af
 
-    # Get phase blocks
+    
     blocks = []
     try:
         block_df = pd.read_csv(block_csv)
@@ -151,19 +151,19 @@ def load_truly_nonsublineage_variants(sample, sublineage_variants):
     return truly_non_sub_variants
 
 def create_vaf_matrix(samples_file, sublineage_file=None):
-    """Create sample x variant VAF matrix"""
     
-    # Load sample names
+    
+    
     with open(samples_file) as f:
         sample_names = [line.strip() for line in f if line.strip()]
     
-    # Load sublineage variants if provided
+    
     sublineage_vars = set()
     if sublineage_file:
         with open(sublineage_file) as f:
             sublineage_vars = set(line.strip() for line in f if line.strip())
     
-    # Collect all variants across all samples
+    
     all_variants = set()
     sample_data = {}
     truly_non_sub_variants_per_sample = {}
@@ -177,7 +177,7 @@ def create_vaf_matrix(samples_file, sublineage_file=None):
             sample_data[sample] = variants
             all_variants.update(variants.keys())
             
-            # Get truly non-sublineage variants for this sample
+            
             truly_non_sub = load_truly_nonsublineage_variants(sample, sublineage_vars)
             truly_non_sub_variants_per_sample[sample] = truly_non_sub
             all_truly_non_sub_variants.update(truly_non_sub)
@@ -193,18 +193,18 @@ def create_vaf_matrix(samples_file, sublineage_file=None):
     print(f"\nTotal unique SNVs across all samples: {len(all_variants)}")
     print(f"Valid samples: {len(valid_samples)}")
     
-    # Create VAF matrix - samples as rows, variants as columns
+    # VAF matrix - samples as rows, variants as columns
     vaf_matrix = pd.DataFrame(0.0, index=valid_samples, columns=all_variants)
     
     for sample in valid_samples:
         for variant in all_variants:
             vaf_matrix.loc[sample, variant] = sample_data[sample].get(variant, 0.0)
     
-    # Create non-sublineage matrix (variants not in sublineage list)
+    
     non_sub_variants = [v for v in all_variants if v not in sublineage_vars]
     non_sub_matrix = vaf_matrix[non_sub_variants].copy()
     
-    # Create truly non-sublineage matrix (not sublineage AND not phased with sublineage)
+    
     all_truly_non_sub_variants = sorted(list(all_truly_non_sub_variants))
     truly_non_sub_matrix = pd.DataFrame(0.0, index=valid_samples, columns=all_truly_non_sub_variants)
     
@@ -220,7 +220,7 @@ def create_vaf_matrix(samples_file, sublineage_file=None):
     return vaf_matrix, non_sub_matrix, truly_non_sub_matrix, valid_samples
 
 def calculate_vaf_distance(matrix, method='euclidean'):
-    """Calculate distance matrix from VAF data"""
+    
     if method == 'euclidean':
         distances = pairwise_distances(matrix.values, metric='euclidean')
     else:
@@ -229,9 +229,9 @@ def calculate_vaf_distance(matrix, method='euclidean'):
     return distances
 
 def build_phylogenetic_tree(distance_matrix, sample_names, method='nj'):
-    """Build phylogenetic tree using distance matrix"""
     
-    # Create BioPython DistanceMatrix
+    
+    
     n_samples = len(sample_names)
     bio_matrix = []
     
@@ -243,7 +243,7 @@ def build_phylogenetic_tree(distance_matrix, sample_names, method='nj'):
     
     dm = DistanceMatrix(names=sample_names, matrix=bio_matrix)
     
-    # Build tree
+    
     constructor = DistanceTreeConstructor()
     
     if method == 'nj':
@@ -254,20 +254,20 @@ def build_phylogenetic_tree(distance_matrix, sample_names, method='nj'):
     return tree
 
 def plot_colored_tree(tree, title, filename, sublineage_counts, figsize=(12, 8)):
-    """Create phylogenetic tree plot with colored leaf tips based on sublineage variant count"""
+    
     
     fig, ax = plt.subplots(figsize=figsize, dpi=300)
     
-    # Set up YlGn colormap with 0-40 range
+    
     from matplotlib.colors import Normalize
     import matplotlib.cm as cm
     
     norm = Normalize(vmin=0, vmax=40)
     cmap = cm.get_cmap('plasma')
     
-    # Create a custom draw function to color the terminals
+    
     def color_terminals(tree):
-        """Color terminal nodes based on sublineage variant counts"""
+        
         terminals = tree.get_terminals()
         for terminal in terminals:
             if terminal.name:
@@ -279,69 +279,69 @@ def plot_colored_tree(tree, title, filename, sublineage_counts, figsize=(12, 8))
                     int(color[0]*255), int(color[1]*255), int(color[2]*255)
                 )
     
-    # Color the terminals
+    
     color_terminals(tree)
     
-    # Draw tree with colored terminals and no labels
+    
     Phylo.draw(tree, axes=ax, do_show=False, 
                branch_labels=None, 
                label_func=lambda x: "",  # No text labels
                show_confidence=False)
     
-    # Get all the line objects (branches and terminals) and color terminals
+    
     lines = ax.get_lines()
     terminals = tree.get_terminals()
     
-    # Clear and redraw with proper terminal coloring
+    
     ax.clear()
     
-    # Use a more direct approach with matplotlib
+    
     import matplotlib.patches as patches
     from matplotlib.collections import LineCollection
     
-    # Get terminal positions by drawing once and extracting info
+    
     Phylo.draw(tree, axes=ax, do_show=False, 
                branch_labels=None, 
                label_func=lambda x: "",
                show_confidence=False)
     
-    # Find and color the terminal points
-    # Get the rightmost points (leaf tips) and color them
+    
+    
     all_lines = ax.get_lines()
     
-    # The last few lines typically represent the terminal branches
-    # We need to identify terminal endpoints and color them
     
-    # Alternative approach: manually extract coordinates and overlay colored circles
+    
+    
+    
     terminals_list = tree.get_terminals()
     n_terminals = len(terminals_list)
     
-    # Get the axes limits to understand the coordinate system
+    
     xlim = ax.get_xlim()
     ylim = ax.get_ylim()
     
-    # Terminal nodes are typically at the rightmost edge
-    # and spaced evenly in y-direction
+    
+    
     y_positions = np.linspace(ylim[0], ylim[1], n_terminals)
     x_position = xlim[1] * 0.99  # Near the right edge
     
-    # Add colored circles at terminal positions
+    
     for i, terminal in enumerate(terminals_list):
         if terminal.name:
             count = sublineage_counts.get(terminal.name, 0)
             count_capped = min(count, 40)
             color = cmap(norm(count_capped))
             
-            # Add a circle at the terminal position
+            
             circle = patches.Circle((x_position, y_positions[i]), 
-                                  radius=(xlim[1] - xlim[0]) * 0.015,  # Proportional to plot size
+                                  radius=(xlim[1] - xlim[0]) * 0.015,  
                                   facecolor=color, 
                                   edgecolor='black',
                                   linewidth=0.5,
                                   zorder=10)
             ax.add_patch(circle)
     
-    # Styling
+    
     ax.set_title(title, fontsize=16, fontweight='bold', pad=20)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -350,7 +350,7 @@ def plot_colored_tree(tree, title, filename, sublineage_counts, figsize=(12, 8))
     ax.set_xticks([])
     ax.set_yticks([])
     
-    # Add colorbar
+    
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
     cbar = plt.colorbar(sm, ax=ax, orientation='vertical', fraction=0.046, pad=0.04)
@@ -358,7 +358,7 @@ def plot_colored_tree(tree, title, filename, sublineage_counts, figsize=(12, 8))
     cbar.set_ticks([0, 10, 20, 30, 40])
     cbar.set_ticklabels(['0', '10', '20', '30', '40+'])
     
-    # Add scale bar information
+    
     ax.text(0.02, 0.98, 'Branch lengths represent\nEuclidean VAF distances\n\nLeaf colors: # sublineage variants', 
             transform=ax.transAxes, fontsize=10, 
             verticalalignment='top', 
@@ -369,59 +369,59 @@ def plot_colored_tree(tree, title, filename, sublineage_counts, figsize=(12, 8))
     plt.close()
 
 def main():
-    """Main phylogenetic analysis pipeline"""
     
-    # Parameters
+    
+    
     samples_file = "samples_phasing_clustering_success.txt"
     sublineage_file = "sublineage_variants.txt"
     output_prefix = "phylogenetic_analysis"
     
     print("=== HPV Phylogenetic Analysis (Colored Leaf Tips Version) ===\n")
     
-    # Get sublineage variant counts per sample for coloring
+    
     print("0. Counting sublineage variants per sample...")
     sublineage_counts = count_sublineage_variants_per_sample(samples_file, sublineage_file)
     print("   Sublineage variant counts calculated.")
     
-    # Create VAF matrices
+    
     print("1. Creating VAF matrices...")
     all_vaf_matrix, non_sub_matrix, truly_non_sub_matrix, sample_names = create_vaf_matrix(
         samples_file, sublineage_file)
     
-    # Save matrices for reference
+    
     all_vaf_matrix.to_csv(f"{output_prefix}_all_variants_vaf_matrix.csv")
     non_sub_matrix.to_csv(f"{output_prefix}_non_sublineage_vaf_matrix.csv")
     truly_non_sub_matrix.to_csv(f"{output_prefix}_truly_non_sublineage_vaf_matrix.csv")
     print("   VAF matrices saved.")
     
-    # Matrix configurations - only the 3 required
+    
     matrix_configs = [
         ('all_variants', all_vaf_matrix, 'All Variants'),
         ('non_sublineage', non_sub_matrix, 'Sublineage Variants Removed'),
         ('truly_non_sublineage', truly_non_sub_matrix, 'Truly Non-sublineage Variants Only')
     ]
     
-    # Only euclidean distance and neighbor joining
+    
     dist_method = 'euclidean'
     tree_method = 'nj'
     
     for matrix_name, matrix, matrix_desc in matrix_configs:
         print(f"\n--- Processing {matrix_desc} ---")
         
-        # Skip if matrix is empty
+        
         if matrix.shape[1] == 0:
             print(f"   Skipping {matrix_desc}: No variants found")
             continue
         
         print(f"2. Building tree using {dist_method} distance and {tree_method.upper()}...")
         
-        # Calculate distances
+        
         distances = calculate_vaf_distance(matrix, method=dist_method)
         
-        # Build phylogenetic tree
+        
         tree = build_phylogenetic_tree(distances, sample_names, method=tree_method)
         
-        # Plot tree with colored leaf tips
+        
         plot_colored_tree(
             tree,
             f"Phylogenetic Tree - {matrix_desc}\n(Neighbor Joining, Euclidean distance)",
@@ -429,7 +429,7 @@ def main():
             sublineage_counts
         )
         
-        # Save tree in Newick format
+        
         with open(f"{output_prefix}_{matrix_name}_{dist_method}_{tree_method}.nwk", 'w') as f:
             Phylo.write(tree, f, 'newick')
         
